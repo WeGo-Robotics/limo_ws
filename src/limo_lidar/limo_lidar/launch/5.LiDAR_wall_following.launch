@@ -1,4 +1,0 @@
-<launch>
-<node pkg="limo_lidar" type="5.Wall_following.py" name="lidar_wall_following_node" output="screen"></node>
-<include file="$(find limo_bringup)/launch/limo_start.launch"/>
-</launch>
