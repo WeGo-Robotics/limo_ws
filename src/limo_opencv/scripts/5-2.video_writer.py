@@ -2,6 +2,7 @@
 
 import rospy
 import cv2
+import rospkg
 
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
@@ -31,6 +32,10 @@ class Webcam:
 
         # Initialize bridge to convert between ROS and OpenCV images
         self.bridge = CvBridge()
+        
+        rospack = rospkg.RosPack()
+        self.file_path = rospack.get_path("limo_opencv")
+        self.file_path += "/scripts/"
 
         # Set the publishing rate to 10
         # self.rate = rospy.Rate(10)
