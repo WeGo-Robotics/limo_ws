@@ -20,9 +20,9 @@ class Bitwise_Operation:
         # Set the publishing rate to 10
         self.rate = rospy.Rate(10)
 
-        # Get the file path of the "opencv_edu" package
+        # Get the file path of the "limo_opencv" package
         rospack = rospkg.RosPack()
-        self.file_path = rospack.get_path("opencv_edu")
+        self.file_path = rospack.get_path("limo_opencv")
         self.file_path += "/scripts/"
 
         # Set the file path for the image files
