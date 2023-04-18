@@ -24,7 +24,7 @@ class Split:
 
         # Get the file path of the "opencv_edu" package
         rospack = rospkg.RosPack()
-        self.file_path = rospack.get_path("opencv_edu")
+        self.file_path = rospack.get_path("limo_opencv")
         self.file_path += "/scripts/"
 
         # Set the file path for the image file
