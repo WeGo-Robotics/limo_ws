@@ -48,6 +48,7 @@ class Color_And_Gray:
         # Display the image in a window
         cv2.imshow("wego_bgr", wego_bgr)
         cv2.imshow("wego_gray", wego_gray)
+        cv2.waitKey(1)
 
         # Convert the OpenCV images to ROS image messages
         ros_image_color = self.bridge.cv2_to_imgmsg(wego_bgr, "bgr8")
