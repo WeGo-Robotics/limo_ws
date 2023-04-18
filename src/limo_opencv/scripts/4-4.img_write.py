@@ -48,6 +48,7 @@ class Color_And_Gray:
         # Display the image in a window
         cv2.imshow("wego_bgr", wego_bgr)
         cv2.imshow("wego_gray", wego_gray)
+        cv2.waitKey(1)
 
         # Write the color and grayscale images to files
         cv2.imwrite(self.file_path + "wego_color.png", wego_bgr)
