@@ -9,13 +9,13 @@ git clone https://github.com/WeGo-Robotics/limo_ws.git
 cd limo_ws
 
 3. 터미널에 다음과 같이 입력하여, 원클릭 셋팅 파일의 모든 권한을 열어줍니다.
-sudo chmod 777 permission.sh
+sudo chmod 777 permission.bash
 
 
 
 4. 터미널에 다음과 같이 입력하여 원클릭 셋팅 파일의 권한을 열어줍니다.
 
-sudo chmod 777 permission.sh
+sudo chmod 777 permission.bash
 
 5. 터미널에 다음과 같이 입력하여 원클릭 셋팅 파일을 실행합니다. 
 
