@@ -11,7 +11,9 @@ class Blend_Line_detect:
         self.bridge = CvBridge()
         rospy.init_node("blend_line_node")
         self.pub = rospy.Publisher("/blend/compressed", CompressedImage, queue_size=10)
-        rospy.Subscriber("/image_jpeg/compressed", CompressedImage, self.img_CB)
+        rospy.Subscriber(
+            "/camera/rgb/image_raw/compressed", CompressedImage, self.img_CB
+        )
 
     def detect_color(self, img):
         # Convert to HSV color space
@@ -36,27 +38,20 @@ class Blend_Line_detect:
         blend_color = cv2.bitwise_and(img, img, mask=blend_mask)
         return blend_color
 
-    def img_warp(self, img, blend_color):
-        # shape of img
+    def img_warp(self, img):
         self.img_x, self.img_y = img.shape[1], img.shape[0]
         # print(f'self.img_x:{self.img_x}, self.img_y:{self.img_y}')
-        # img_size = [640, 480]
 
+        img_size = [640, 480]
         # ROI
-        src_side_offset = [round(self.img_x * 0.046875), round(self.img_y * 0.208)]
-        src_center_offset = [round(self.img_x * 0.14), round(self.img_y * 0.083)]
+        src_side_offset = [0, 240]
+        src_center_offset = [200, 315]
         src = np.float32(
             [
-                [src_side_offset[0], self.img_y - src_side_offset[1]],
-                [
-                    self.img_x / 2 - src_center_offset[0],
-                    self.img_y / 2 + src_center_offset[1],
-                ],
-                [
-                    self.img_x / 2 + src_center_offset[0],
-                    self.img_y / 2 + src_center_offset[1],
-                ],
-                [self.img_x - src_side_offset[0], self.img_y - src_side_offset[1]],
+                [0, 479],
+                [src_center_offset[0], src_center_offset[1]],
+                [640 - src_center_offset[0], src_center_offset[1]],
+                [639, 479],
             ]
         )
         # 아래 2 개 점 기준으로 dst 영역을 설정합니다.
@@ -73,24 +68,19 @@ class Blend_Line_detect:
         # find perspective matrix
         matrix = cv2.getPerspectiveTransform(src, dst)
         matrix_inv = cv2.getPerspectiveTransform(dst, src)
-        blend_line_warp = cv2.warpPerspective(
-            blend_color, matrix, [self.img_x, self.img_y]
-        )
-        return blend_line_warp
+        warp_img = cv2.warpPerspective(img, matrix, [self.img_x, self.img_y])
+        return warp_img
 
     def img_CB(self, data):
         img = self.bridge.compressed_imgmsg_to_cv2(data)
-
-        blend_color = self.detect_color(img)
-
-        blend_line_warp = self.img_warp(img, blend_color)
-
-        blend_line_msg = self.bridge.cv2_to_compressed_imgmsg(blend_line_warp)
+        warp_img = self.img_warp(img)
+        warp_blend_line = self.detect_color(warp_img)
+        blend_line_msg = self.bridge.cv2_to_compressed_imgmsg(warp_blend_line)
         self.pub.publish(blend_line_msg)
         cv2.namedWindow("img", cv2.WINDOW_NORMAL)
-        cv2.namedWindow("blend_line_warp", cv2.WINDOW_NORMAL)
+        cv2.namedWindow("warp_blend_line", cv2.WINDOW_NORMAL)
         cv2.imshow("img", img)
-        cv2.imshow("blend_line_warp", blend_line_warp)
+        cv2.imshow("warp_blend_line", warp_blend_line)
         cv2.waitKey(1)
 
 

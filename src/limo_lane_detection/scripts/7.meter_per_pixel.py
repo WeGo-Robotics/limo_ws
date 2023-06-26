@@ -15,7 +15,9 @@ class Meter_Per_Pixel:
         self.pub = rospy.Publisher(
             "/sliding_windows/compressed", CompressedImage, queue_size=10
         )
-        rospy.Subscriber("/image_jpeg/compressed", CompressedImage, self.img_CB)
+        rospy.Subscriber(
+            "/camera/rgb/image_raw/compressed", CompressedImage, self.img_CB
+        )
         self.nothing_flag = False
 
     def detect_color(self, img):
@@ -41,27 +43,20 @@ class Meter_Per_Pixel:
         blend_color = cv2.bitwise_and(img, img, mask=blend_mask)
         return blend_color
 
-    def img_warp(self, img, blend_color):
-        # shape of img
+    def img_warp(self, img):
         self.img_x, self.img_y = img.shape[1], img.shape[0]
         # print(f'self.img_x:{self.img_x}, self.img_y:{self.img_y}')
-        # img_size = [640, 480]
 
+        img_size = [640, 480]
         # ROI
-        src_side_offset = [round(self.img_x * 0.046875), round(self.img_y * 0.208)]
-        src_center_offset = [round(self.img_x * 0.14), round(self.img_y * 0.083)]
+        src_side_offset = [0, 240]
+        src_center_offset = [200, 315]
         src = np.float32(
             [
-                [src_side_offset[0], self.img_y - src_side_offset[1]],
-                [
-                    self.img_x / 2 - src_center_offset[0],
-                    self.img_y / 2 + src_center_offset[1],
-                ],
-                [
-                    self.img_x / 2 + src_center_offset[0],
-                    self.img_y / 2 + src_center_offset[1],
-                ],
-                [self.img_x - src_side_offset[0], self.img_y - src_side_offset[1]],
+                [0, 479],
+                [src_center_offset[0], src_center_offset[1]],
+                [640 - src_center_offset[0], src_center_offset[1]],
+                [639, 479],
             ]
         )
         # 아래 2 개 점 기준으로 dst 영역을 설정합니다.
@@ -78,8 +73,8 @@ class Meter_Per_Pixel:
         # find perspective matrix
         matrix = cv2.getPerspectiveTransform(src, dst)
         matrix_inv = cv2.getPerspectiveTransform(dst, src)
-        blend_line = cv2.warpPerspective(blend_color, matrix, [self.img_x, self.img_y])
-        return blend_line
+        warp_img = cv2.warpPerspective(img, matrix, [self.img_x, self.img_y])
+        return warp_img
 
     def img_binary(self, blend_line):
         bin = cv2.cvtColor(blend_line, cv2.COLOR_BGR2GRAY)
@@ -262,13 +257,9 @@ class Meter_Per_Pixel:
         img = self.bridge.compressed_imgmsg_to_cv2(data)
         self.nwindows = 10
         self.window_height = np.int(img.shape[0] / self.nwindows)
-
-        blend_color = self.detect_color(img)
-
-        blend_line = self.img_warp(img, blend_color)
-
-        binary_line = self.img_binary(blend_line)
-
+        warp_img = self.img_warp(img)
+        blend_img = self.detect_color(warp_img)
+        binary_img = self.img_binary(blend_img)
         if self.nothing_flag == False:
             self.detect_nothing()
             self.nothing_flag = True
@@ -281,8 +272,7 @@ class Meter_Per_Pixel:
             left_y,
             right_x,
             right_y,
-        ) = self.window_search(binary_line)
-
+        ) = self.window_search(binary_img)
         meter_per_pix_x, meter_per_pix_y = self.meter_per_pixel()
 
         os.system("clear")

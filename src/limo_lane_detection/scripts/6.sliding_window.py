@@ -15,31 +15,43 @@ class Sliding_Window:
         self.pub = rospy.Publisher(
             "/sliding_windows/compressed", CompressedImage, queue_size=10
         )
-        rospy.Subscriber("/image_jpeg/compressed", CompressedImage, self.img_CB)
+        rospy.Subscriber(
+            "/camera/rgb/image_raw/compressed", CompressedImage, self.img_CB
+        )
         self.nothing_flag = False
 
-    def detect_color(self, img):
-        # Convert to HSV color space
-        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    def img_warp(self, img):
+        self.img_x, self.img_y = img.shape[1], img.shape[0]
+        # print(f'self.img_x:{self.img_x}, self.img_y:{self.img_y}')
 
-        # Define range of yellow color in HSV
-        yellow_lower = np.array([15, 80, 0])
-        yellow_upper = np.array([45, 255, 255])
-
-        # Define range of blend color in HSV
-        white_lower = np.array([0, 0, 200])
-        white_upper = np.array([179, 64, 255])
-
-        # Threshold the HSV image to get only yellow colors
-        yellow_mask = cv2.inRange(hsv, yellow_lower, yellow_upper)
-
-        # Threshold the HSV image to get only white colors
-        white_mask = cv2.inRange(hsv, white_lower, white_upper)
-
-        # Threshold the HSV image to get blend colors
-        blend_mask = cv2.bitwise_or(yellow_mask, white_mask)
-        blend_color = cv2.bitwise_and(img, img, mask=blend_mask)
-        return blend_color
+        img_size = [640, 480]
+        # ROI
+        src_side_offset = [0, 240]
+        src_center_offset = [200, 315]
+        src = np.float32(
+            [
+                [0, 479],
+                [src_center_offset[0], src_center_offset[1]],
+                [640 - src_center_offset[0], src_center_offset[1]],
+                [639, 479],
+            ]
+        )
+        # 아래 2 개 점 기준으로 dst 영역을 설정합니다.
+        dst_offset = [round(self.img_x * 0.125), 0]
+        # offset x 값이 작아질 수록 dst box width 증가합니다.
+        dst = np.float32(
+            [
+                [dst_offset[0], self.img_y],
+                [dst_offset[0], 0],
+                [self.img_x - dst_offset[0], 0],
+                [self.img_x - dst_offset[0], self.img_y],
+            ]
+        )
+        # find perspective matrix
+        matrix = cv2.getPerspectiveTransform(src, dst)
+        matrix_inv = cv2.getPerspectiveTransform(dst, src)
+        warp_img = cv2.warpPerspective(img, matrix, [self.img_x, self.img_y])
+        return warp_img
 
     def img_warp(self, img, blend_color):
         # shape of img
@@ -52,16 +64,10 @@ class Sliding_Window:
         src_center_offset = [round(self.img_x * 0.14), round(self.img_y * 0.083)]
         src = np.float32(
             [
-                [src_side_offset[0], self.img_y - src_side_offset[1]],
-                [
-                    self.img_x / 2 - src_center_offset[0],
-                    self.img_y / 2 + src_center_offset[1],
-                ],
-                [
-                    self.img_x / 2 + src_center_offset[0],
-                    self.img_y / 2 + src_center_offset[1],
-                ],
-                [self.img_x - src_side_offset[0], self.img_y - src_side_offset[1]],
+                [0, 620],
+                [500, 400],
+                [780, 400],
+                [1250, 620],
             ]
         )
         # 아래 2 개 점 기준으로 dst 영역을 설정합니다.
@@ -107,7 +113,7 @@ class Sliding_Window:
         bottom_half_y = binary_line.shape[0] / 2
         histogram = np.sum(binary_line[int(bottom_half_y) :, :], axis=0)
         # 히스토그램을 절반으로 나누어 좌우 히스토그램의 최대값의 인덱스를 반환합니다.
-        midpoint = np.int(histogram.shape[0] / 2)
+        midpoint = np.int32(histogram.shape[0] / 2)
         left_x_base = np.argmax(histogram[:midpoint])
         right_x_base = np.argmax(histogram[midpoint:]) + midpoint
         # show histogram
@@ -194,9 +200,9 @@ class Sliding_Window:
 
             # window내 설정한 pixel개수 이상이 탐지되면, 픽셀들의 x 좌표 평균으로 업데이트 합니다.
             if len(good_left_idx) > min_pix:
-                left_x_current = np.int(np.mean(lane_pixel_x[good_left_idx]))
+                left_x_current = np.int32(np.mean(lane_pixel_x[good_left_idx]))
             if len(good_right_idx) > min_pix:
-                right_x_current = np.int(np.mean(lane_pixel_x[good_right_idx]))
+                right_x_current = np.int32(np.mean(lane_pixel_x[good_right_idx]))
 
         # np.concatenate(array) => axis 0으로 차원 감소 시킵니다.(window개수로 감소)
         left_lane_idx = np.concatenate(left_lane_idx)
@@ -208,7 +214,7 @@ class Sliding_Window:
         right_x = lane_pixel_x[right_lane_idx]
         right_y = lane_pixel_y[right_lane_idx]
 
-        # 좌우 차선 별 2차함수 계수를 추정합니다.
+        # 좌우 차선 별 2차 함수 계수를 추정합니다.
         if len(left_x) == 0 and len(right_x) == 0:
             left_x = self.nothing_pixel_left_x
             left_y = self.nothing_pixel_y
@@ -225,7 +231,7 @@ class Sliding_Window:
         left_fit = np.polyfit(left_y, left_x, 2)
         right_fit = np.polyfit(right_y, right_x, 2)
         # 좌우 차선 별 추정할 y좌표입니다.
-        plot_y = np.linspace(0, binary_line.shape[0] - 1, 5)
+        plot_y = np.linspace(0, binary_line.shape[0] - 1, 100)
         # 좌우 차선 별 2차 곡선을 추정합니다.
         left_fit_x = left_fit[0] * plot_y**2 + left_fit[1] * plot_y + left_fit[2]
         right_fit_x = right_fit[0] * plot_y**2 + right_fit[1] * plot_y + right_fit[2]
@@ -248,14 +254,10 @@ class Sliding_Window:
     def img_CB(self, data):
         img = self.bridge.compressed_imgmsg_to_cv2(data)
         self.nwindows = 10
-        self.window_height = np.int(img.shape[0] / self.nwindows)
-
-        blend_color = self.detect_color(img)
-
-        blend_line = self.img_warp(img, blend_color)
-
-        binary_line = self.img_binary(blend_line)
-
+        self.window_height = np.int32(img.shape[0] / self.nwindows)
+        warp_img = self.img_warp(img)
+        blend_img = self.detect_color(warp_img)
+        binary_img = self.img_binary(blend_img)
         if self.nothing_flag == False:
             self.detect_nothing()
             self.nothing_flag = True
@@ -268,7 +270,7 @@ class Sliding_Window:
             left_y,
             right_x,
             right_y,
-        ) = self.window_search(binary_line)
+        ) = self.window_search(binary_img)
 
         os.system("clear")
         print(f"------------------------------")

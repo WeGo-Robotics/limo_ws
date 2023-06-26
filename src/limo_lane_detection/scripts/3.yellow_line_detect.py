@@ -11,7 +11,9 @@ class Yellow_Line_Detect:
         self.bridge = CvBridge()
         rospy.init_node("yellow_line_node")
         self.pub = rospy.Publisher("/yellow/compressed", CompressedImage, queue_size=10)
-        rospy.Subscriber("/image_jpeg/compressed", CompressedImage, self.img_CB)
+        rospy.Subscriber(
+            "/camera/rgb/image_raw/compressed", CompressedImage, self.img_CB
+        )
 
     def detect_color(self, img):
         # Convert to HSV color space
@@ -26,26 +28,20 @@ class Yellow_Line_Detect:
         yellow_color = cv2.bitwise_and(img, img, mask=yellow_mask)
         return yellow_color
 
-    def img_warp(self, img, yellow_color):
+    def img_warp(self, img):
         self.img_x, self.img_y = img.shape[1], img.shape[0]
         # print(f'self.img_x:{self.img_x}, self.img_y:{self.img_y}')
 
-        # img_size = [640, 480]
+        img_size = [640, 480]
         # ROI
-        src_side_offset = [round(self.img_x * 0.046875), round(self.img_y * 0.208)]
-        src_center_offset = [round(self.img_x * 0.14), round(self.img_y * 0.083)]
+        src_side_offset = [0, 240]
+        src_center_offset = [200, 315]
         src = np.float32(
             [
-                [src_side_offset[0], self.img_y - src_side_offset[1]],
-                [
-                    self.img_x / 2 - src_center_offset[0],
-                    self.img_y / 2 + src_center_offset[1],
-                ],
-                [
-                    self.img_x / 2 + src_center_offset[0],
-                    self.img_y / 2 + src_center_offset[1],
-                ],
-                [self.img_x - src_side_offset[0], self.img_y - src_side_offset[1]],
+                [0, 479],
+                [src_center_offset[0], src_center_offset[1]],
+                [640 - src_center_offset[0], src_center_offset[1]],
+                [639, 479],
             ]
         )
         # 아래 2 개 점 기준으로 dst 영역을 설정합니다.
@@ -62,18 +58,13 @@ class Yellow_Line_Detect:
         # find perspective matrix
         matrix = cv2.getPerspectiveTransform(src, dst)
         matrix_inv = cv2.getPerspectiveTransform(dst, src)
-        yellow_line = cv2.warpPerspective(
-            yellow_color, matrix, [self.img_x, self.img_y]
-        )
-        return yellow_line
+        warp_img = cv2.warpPerspective(img, matrix, [self.img_x, self.img_y])
+        return warp_img
 
     def img_CB(self, data):
         img = self.bridge.compressed_imgmsg_to_cv2(data)
-
-        yellow_color = self.detect_color(img)
-
-        yellow_line = self.img_warp(img, yellow_color)
-
+        warp_img = self.img_warp(img)
+        yellow_line = self.detect_color(warp_img)
         yellow_line_img_msg = self.bridge.cv2_to_compressed_imgmsg(yellow_line)
         self.pub.publish(yellow_line_img_msg)
         cv2.namedWindow("img", cv2.WINDOW_NORMAL)
