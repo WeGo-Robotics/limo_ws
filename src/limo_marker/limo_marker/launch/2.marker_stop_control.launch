@@ -16,8 +16,6 @@
 		<remap from="camera_info"   to="$(arg cam_info_topic)" />
 	</node>
 	<node pkg="limo_marker" type="2.marker_stop_control.py" name="marker_stop_node" output="screen"></node>
-	<include file="$(find limo_bringup)/launch/limo_start.launch"/>
-	<include file="$(find astra_camera)/launch/dabai_u3.launch"/>
 
 </launch>
 
