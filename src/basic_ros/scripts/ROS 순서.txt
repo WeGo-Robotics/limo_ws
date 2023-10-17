@@ -1,0 +1,21 @@
+home 디렉토리에서
+1. 작업 공간을 만듭니다.(mkdir <<Workspace>>_ws)
+2. 작업 공간으로 이동합니다.(cd <<Workspace>>_ws)
+3. 만들어진 작업 공간 내에 src라는 폴더를 만들며,
+    src 폴더는 패키지가 저장되는 곳입니다.(mkdir src)
+4. src 폴더로 이동합니다.(cd src)
+5. 패키지를 생성합니다.(catkin_create_pkg <<PACAKAGE>> rospy std_msgs)
+6. 패키지로 이동합니다. (cd <<PACAKAGE>>)
+7. 패키지내 scripts라는 폴더를 만들며, scripts라는 폴더는
+    python 코드가 저장되는 곳입니다. (mkdir scripts)
+8. scripts 폴더로 이동합니다.(cd scripts)
+9. 코드를 작성합니다. (code <<CODE_NAME>>.py)
+10. 파일에 실행 권한을 부여합니다
+    (chmod 777 <<CODE_NAME>>.py or *)
+11. <<Workspace>>_ws로 이동합니다.(cd ~/<<Workspace>>_ws)
+12. 빌드를 진행합니다. (catkin_make)
+13. 빌드된 정보를 현재 터미널에 적용합니다.
+    (source devel/setup.bash or source devel/setup.zsh)
+14. ROS_MASTER를 실행합니다. (roscore)
+15. 파일을 실행합니다. (rosrun <<PACAKAGE>> <<CODE_NAME>>.py)
+
